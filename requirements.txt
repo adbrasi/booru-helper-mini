@@ -1,6 +1,4 @@
 onnxruntime
-onnx
 huggingface_hub>=0.20.0
+Pillow
 timm>=0.9.0
-torch
-torchvision
