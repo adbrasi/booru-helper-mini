@@ -522,9 +522,13 @@ def _run_pixai(images, backend, repo_id, batch_size, general_threshold, characte
                 pbar.update(1)
     else:
         _, session, input_name, tags_arr, is_character, ip_map = entry
+        num_classes = int(tags_arr.shape[0])
         for batch in _iterate_batches(images, batch_size):
             arr = np.stack([_preprocess_pixai(img) for img in batch]).astype(np.float32)
-            logits = session.run(None, {input_name: arr})[0]
+            outputs = session.run(None, {input_name: arr})
+            logits = next((o for o in outputs if o.ndim == 2 and o.shape[1] == num_classes), None)
+            if logits is None:
+                logits = max(outputs, key=lambda o: o.shape[-1] if o.ndim >= 2 else 0)
             probs = _sigmoid(np.asarray(logits))
             for row in probs:
                 _collect_pixai(row, tags_arr, is_character, ip_map, general_threshold, character_threshold, include_ip, out)
