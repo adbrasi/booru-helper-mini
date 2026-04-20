@@ -73,7 +73,8 @@ class _LRU(OrderedDict):
             self.move_to_end(key)
         super().__setitem__(key, value)
         while len(self) > self.maxsize:
-            self.popitem(last=False)
+            _, evicted = self.popitem(last=False)
+            del evicted
             _cleanup_memory()
 
     def __getitem__(self, key):
@@ -241,8 +242,12 @@ def _get_wd14(model_name: str, force_download: bool):
     session = _make_session(onnx_path)
     input_info = session.get_inputs()[0]
     input_name = input_info.name
-    shape = input_info.shape
-    size = int(shape[1]) if isinstance(shape[1], int) else 448
+    shape = input_info.shape  # WD14 ONNX is NHWC: [batch, H, W, C]
+    size = 448
+    for dim in (shape[1], shape[2]):
+        if isinstance(dim, int) and dim > 0:
+            size = int(dim)
+            break
     output_name = session.get_outputs()[0].name
     tags_arr, rating_idx, general_idx, character_idx = _load_wd14_tags(csv_path)
     entry = (session, input_name, output_name, size, tags_arr, rating_idx, general_idx, character_idx)
