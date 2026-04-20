@@ -439,14 +439,22 @@ def _load_pixai_onnx_maps(tags_path: str):
     return tags_arr, is_character, ip_map
 
 
+class _PixAIHead(torch.nn.Module if torch is not None else object):
+    def __init__(self, in_dim: int, num_classes: int):
+        super().__init__()
+        self.head = torch.nn.Sequential(torch.nn.Linear(in_dim, num_classes))
+
+    def forward(self, x):
+        return self.head(x)
+
+
 def _build_pixai_torch(weights_path: str, num_classes: int, device: str, fp16: bool):
     if torch is None or timm is None:
         raise RuntimeError("PixAI pytorch backend requires torch and timm. Switch to onnx backend or install deps.")
     encoder = timm.create_model("hf_hub:SmilingWolf/wd-eva02-large-tagger-v3", pretrained=False)
     encoder.reset_classifier(0)
     feat_dim = int(getattr(encoder, "num_features", 1024))
-    head = torch.nn.Linear(feat_dim, num_classes)
-    model = torch.nn.Sequential(encoder, head)
+    model = torch.nn.Sequential(encoder, _PixAIHead(feat_dim, num_classes))
     try:
         state = torch.load(weights_path, map_location="cpu", weights_only=True)
     except TypeError:
